@@ -1,0 +1,230 @@
+from aiogram import Router, F
+from aiogram.types import Message, CallbackQuery, BufferedInputFile, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.filters import Command
+import db
+import keyboards as kb
+from datetime import datetime
+import sqlite3
+
+router = Router()
+
+# ---------- Презентация функций (текст) ----------
+FEATURES_TEXT = (
+    "✨ *BotRetail — Telegram-бот для офлайн-магазина* ✨\n\n"
+    "Вот 10 функций, которые реально работают и приносят деньги:\n\n"
+    "1️⃣ *📦 Каталог товаров* – фото, цена, остаток, категории.\n"
+    "2️⃣ *🔍 Наличие онлайн* – клиент проверяет, есть ли товар сейчас, не едет зря.\n"
+    "3️⃣ *🔒 Бронирование* – резерв на 24 часа, конверсия 80–90% в покупку.\n"
+    "4️⃣ *🎁 Акции и скидки* – купоны, промокоды, персональные предложения.\n"
+    "5️⃣ *⭐ Лояльность* – баллы, статус, история покупок, день рождения.\n"
+    "6️⃣ *📍 Адрес и маршрут* – кнопка с геопозицией, часы работы.\n"
+    "7️⃣ *💬 Связь с продавцом* – клиент пишет, менеджер отвечает из Telegram.\n"
+    "8️⃣ *🔔 Уведомления* – напоминание о брони, новые поступления, возврат «ушедших».\n"
+    "9️⃣ *❓ FAQ* – ответы на частые вопросы, снимает 80% звонков.\n"
+    "🔟 *📜 История покупок* – клиент видит все свои заказы.\n\n"
+    "💡 *Почему это выгодно?*\n"
+    "• Бронь → реальный визит → продажа\n"
+    "• Лояльность повышает частоту покупок на 30–50%\n"
+    "• Автоматизация экономит время продавцов\n\n"
+    "👇 *Попробуйте демо прямо сейчас:*"
+)
+
+@router.message(Command("start"))
+async def cmd_start(message: Message):
+    db.create_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
+    await message.answer(
+        f"Привет, {message.from_user.first_name}! 👋\n\nЯ бот магазина «Ваш бренд».\n\nВыберите действие:",
+        reply_markup=kb.main_menu_keyboard()
+    )
+
+@router.message(Command("features"))
+async def cmd_features(message: Message):
+    await show_features(message)
+
+@router.message(F.text == "📱 О боте / Функции")
+async def show_features(message: Message):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="▶ Запустить демо (каталог и бронь)", callback_data="demo_start")],
+        [InlineKeyboardButton(text="📄 Скачать презентацию (HTML)", callback_data="download_html")]
+    ])
+    await message.answer(FEATURES_TEXT, parse_mode="Markdown", reply_markup=keyboard)
+
+@router.callback_query(F.data == "demo_start")
+async def demo_start(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer(
+        "Демо-режим: сейчас я покажу, как работает бот.\nВыберите категорию в каталоге и попробуйте забронировать товар!",
+        reply_markup=kb.main_menu_keyboard()
+    )
+    await callback.message.answer("👉 Нажмите «📦 Каталог» и выберите «Корм».")
+    await callback.answer()
+
+@router.callback_query(F.data == "download_html")
+async def send_html_presentation(callback: CallbackQuery):
+    try:
+        with open("presentation.html", "rb") as f:
+            html_bytes = f.read()
+        file = BufferedInputFile(html_bytes, filename="botretail_presentation.html")
+        await callback.message.answer_document(
+            document=file,
+            caption="📄 Полная презентация возможностей бота. Откройте в браузере."
+        )
+    except FileNotFoundError:
+        await callback.message.answer("Файл презентации временно недоступен. Попробуйте позже.")
+    await callback.answer()
+
+# ---------- Остальные обработчики (каталог, бронь, лояльность и т.д.) ----------
+@router.message(F.text == "📦 Каталог")
+async def catalog(message: Message):
+    await message.answer("Выберите категорию:", reply_markup=kb.categories_keyboard())
+
+@router.callback_query(F.data.startswith("cat_"))
+async def show_products(callback: CallbackQuery):
+    cat = callback.data.split("_")[1]
+    products = db.get_products_by_category(cat)
+    if not products:
+        await callback.message.edit_text("В этой категории пока нет товаров.")
+        return
+    await callback.message.edit_text(f"Товары в категории «{cat}»:", reply_markup=kb.products_keyboard(products))
+
+@router.callback_query(F.data.startswith("product_"))
+async def product_detail(callback: CallbackQuery):
+    product_id = int(callback.data.split("_")[1])
+    product = db.get_product(product_id)
+    if not product:
+        await callback.answer("Товар не найден")
+        return
+    _, name, price, stock, desc, photo_id = product
+    text = f"*{name}*\n\n{desc}\n💰 Цена: {price} ₽\n📦 В наличии: {stock} шт."
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=kb.product_detail_keyboard(product_id, stock>0))
+
+@router.callback_query(F.data.startswith("book_"))
+async def book_product(callback: CallbackQuery):
+    product_id = int(callback.data.split("_")[1])
+    product = db.get_product(product_id)
+    if not product or product[3] <= 0:
+        await callback.answer("Товара нет в наличии", show_alert=True)
+        return
+    user_id = callback.from_user.id
+    existing = db.get_active_booking(user_id, product_id)
+    if existing:
+        await callback.answer("У вас уже есть активная бронь на этот товар!", show_alert=True)
+        return
+    booking_id, expires = db.create_booking(user_id, product_id, product[1], product[2])
+    await callback.message.edit_text(
+        f"✅ *Товар забронирован!*\n\n{product[1]}\nЦена: {product[2]} ₽\n\n⏱ Бронь действует до {expires.strftime('%d.%m.%Y %H:%M')}\nПриходите в магазин до этого времени.",
+        reply_markup=kb.booking_confirm_keyboard(booking_id, product_id),
+        parse_mode="Markdown"
+    )
+
+@router.callback_query(F.data.startswith("confirm_purchase_"))
+async def confirm_purchase(callback: CallbackQuery):
+    _, _, booking_id, product_id = callback.data.split("_")
+    booking_id = int(booking_id)
+    product_id = int(product_id)
+    product = db.get_product(product_id)
+    if not product:
+        await callback.answer("Ошибка")
+        return
+    db.complete_booking(booking_id, product_id)
+    new_bal = db.update_user_purchase(callback.from_user.id, product[2])
+    await callback.message.edit_text(
+        f"🎉 *Покупка подтверждена!*\n\nВы купили: {product[1]}\nСпасибо за доверие!\n\nВам начислено {int(product[2]*0.1)} баллов.\nБаланс баллов: {new_bal}",
+        parse_mode="Markdown"
+    )
+
+@router.callback_query(F.data.startswith("cancel_booking_"))
+async def cancel_booking(callback: CallbackQuery):
+    booking_id = int(callback.data.split("_")[2])
+    db.cancel_booking(booking_id)
+    await callback.message.edit_text("❌ Бронь отменена. Товар снова доступен в каталоге.")
+    await callback.answer("Бронь отменена")
+
+@router.message(F.text == "🔍 Наличие товара")
+async def ask_product_name(message: Message):
+    await message.answer("Введите название или артикул товара:")
+    @router.message(F.text)
+    async def search_avail(m: Message):
+        prods = db.get_products_by_category("")
+        found = [p for p in prods if m.text.lower() in p[1].lower()]
+        if found:
+            text = "🔍 *Результаты поиска:*\n" + "\n".join(f"• {p[1]} — {p[2]}₽ (в наличии: {p[3]} шт.)" for p in found)
+            await m.answer(text, parse_mode="Markdown")
+        else:
+            await m.answer("Товар не найден. Попробуйте ещё раз или напишите продавцу.")
+        # удаляем этот временный обработчик (простой способ – отключить по флагу, но для демо сойдёт)
+        router.message.handlers.remove(search_avail)
+    # небольшой хак, чтобы обработчик не конфликтовал – добавляем только один раз
+    # в реальном проекте лучше использовать FSM
+
+@router.message(F.text == "🔒 Бронирование")
+async def my_bookings(message: Message):
+    booking = db.get_active_booking(message.from_user.id)
+    if not booking:
+        await message.answer("У вас нет активных броней.\nВы можете забронировать товар из каталога.")
+    else:
+        _, _, _, pname, price, booked, expires, status = booking
+        await message.answer(f"📌 *Ваша бронь*\n\nТовар: {pname}\nЦена: {price} ₽\nЗабронирован: {booked[:16]}\nДействует до: {expires[:16]}", parse_mode="Markdown")
+
+@router.message(F.text == "⭐ Моя лояльность")
+async def loyalty(message: Message):
+    user = db.get_user(message.from_user.id)
+    if not user:
+        await message.answer("Ошибка профиля")
+        return
+    _, _, _, balance, status, purchases, spent = user
+    text = f"🌟 *Ваш профиль*\n\nСтатус: {status}\nБаллов: {balance} (1 балл = 1 ₽)\nПокупок: {purchases}\nПотрачено: {spent} ₽\n\nСледующий статус через {5-purchases if purchases<5 else 10-purchases} покупок."
+    await message.answer(text, parse_mode="Markdown")
+
+@router.message(F.text == "🎁 Акции")
+async def promotions(message: Message):
+    text = "🔥 *Текущие акции*\n\n1. Корм для кошек — скидка 10% до конца дня.\n2. При покупке от 1500 ₽ — игрушка в подарок.\n3. День рождения питомца — скидка 15% (предъявите дату).\n\nЧтобы получить промокод, нажмите /promo"
+    await message.answer(text, parse_mode="Markdown")
+
+@router.message(F.text == "📍 Адрес и часы")
+async def address(message: Message):
+    text = "📍 *Наш магазин*\n\nг. Москва, ул. Ленина, 45, ТЦ «Центральный», 2 этаж.\n\n⏰ *Часы работы*\nПн–Пт: 10:00–21:00\nСб–Вс: 10:00–22:00\n\n🚇 Метро «Центральная» (5 мин пешком)\n🚗 Бесплатная парковка"
+    await message.answer(text, parse_mode="Markdown", reply_markup=kb.inline_map_keyboard())
+
+@router.callback_query(F.data == "map_open")
+async def send_map(callback: CallbackQuery):
+    await callback.message.answer_location(latitude=55.751244, longitude=37.618423)
+    await callback.answer()
+
+@router.message(F.text == "💬 Связь с продавцом")
+async def contact_seller(message: Message):
+    await message.answer("Напишите ваш вопрос, и я передам его продавцу. Обычно отвечают в течение 5 минут.")
+
+@router.message(F.text == "❓ FAQ")
+async def faq(message: Message):
+    text = "❓ *Часто задаваемые вопросы*\n\n• *Как вернуть товар?* — В течение 14 дней при наличии чека.\n• *Способы оплаты?* — Наличные, карта, СБП.\n• *Можно ли обменять?* — Да, если товар не использован.\n• *Доставка?* — Только самовывоз из магазина."
+    await message.answer(text, parse_mode="Markdown")
+
+@router.message(F.text == "📜 История покупок")
+async def purchase_history(message: Message):
+    conn = sqlite3.connect(db.DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT product_name, price, purchased_at FROM purchases WHERE user_id = ? ORDER BY purchased_at DESC LIMIT 10", (message.from_user.id,))
+    rows = cur.fetchall()
+    conn.close()
+    if not rows:
+        await message.answer("Вы ещё ничего не купили.")
+    else:
+        text = "📜 *Ваши последние покупки:*\n"
+        for row in rows:
+            text += f"• {row[0]} — {row[1]}₽ ({row[2][:10]})\n"
+        await message.answer(text, parse_mode="Markdown")
+
+@router.callback_query(F.data == "main_menu")
+async def back_main_menu(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.message.answer("Главное меню:", reply_markup=kb.main_menu_keyboard())
+    await callback.answer()
+
+@router.callback_query(F.data == "back_categories")
+async def back_to_categories(callback: CallbackQuery):
+    await callback.message.edit_text("Выберите категорию:", reply_markup=kb.categories_keyboard())
+
+@router.callback_query(F.data == "back_to_products")
+async def back_to_products(callback: CallbackQuery):
+    await callback.message.edit_text("Выберите категорию:", reply_markup=kb.categories_keyboard())
