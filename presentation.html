@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BotRetail — Telegram-бот для офлайн-магазина</title>
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Cabinet+Grotesk:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --ink:#060612;
+  --paper:#f5f3ee;
+  --cream:#ede9e0;
+  --green:#00c97a;
+  --green-dark:#00a562;
+  --lime:#c6ff4e;
+  --orange:#ff5c35;
+  --purple:#6b3bff;
+  --blue:#1a56ff;
+  --text:#060612;
+  --muted:#8a8680;
+  --border:rgba(6,6,18,0.1);
+}
+
+html{scroll-behavior:smooth}
+
+body{
+  font-family:'Cabinet Grotesk',sans-serif;
+  background:var(--paper);
+  color:var(--text);
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* CURSOR */
+.cursor{
+  position:fixed;width:12px;height:12px;
+  background:var(--green);border-radius:50%;
+  pointer-events:none;z-index:9999;
+  transform:translate(-50%,-50%);
+  transition:width .15s,height .15s,background .15s;
+  mix-blend-mode:multiply;
+}
+.cursor-ring{
+  position:fixed;width:40px;height:40px;
+  border:1.5px solid var(--ink);border-radius:50%;
+  pointer-events:none;z-index:9998;
+  transform:translate(-50%,-50%);
+  transition:transform .08s linear,width .2s,height .2s,border-color .2s;
+}
+body:hover .cursor{opacity:1}
+
+/* NOISE OVERLAY */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:1000;opacity:0.6;
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;height:72px;
+  background:rgba(245,243,238,0.92);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+}
+
+.nav-logo{
+  font-family:'Clash Display',sans-serif;
+  font-weight:700;font-size:22px;
+  display:flex;align-items:center;gap:10px;
+  letter-spacing:-0.5px;
+}
+
+.logo-dot{
+  width:10px;height:10px;
+  background:var(--green);border-radius:50%;
+  animation:breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.4);opacity:0.7}
+}
+
+nav ul{list-style:none;display:flex;gap:36px}
+nav ul a{
+  color:var(--muted);text-decoration:none;
+  font-size:14px;font-weight:600;
+  transition:color .2s;letter-spacing:.2px;
+}
+nav ul a:hover{color:var(--text)}
+
+.nav-cta{
+  background:var(--ink);color:var(--paper);
+  padding:10px 22px;border-radius:100px;
+  font-size:14px;font-weight:700;
+  text-decoration:none;
+  transition:all .2s;display:flex;align-items:center;gap:6px;
+}
+.nav-cta:hover{background:var(--green);color:var(--ink);transform:scale(1.03)}
+
+/* HERO */
+.hero{
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  justify-content:center;
+  padding:120px 48px 80px;
+  position:relative;overflow:hidden;
+}
+
+.hero-marquee-bg{
+  position:absolute;top:0;left:0;right:0;
+  height:100%;overflow:hidden;pointer-events:none;
+  opacity:0.04;
+}
+
+.marquee-row{
+  display:flex;gap:60px;
+  white-space:nowrap;
+  font-family:'Clash Display',sans-serif;
+  font-size:180px;font-weight:700;
+  line-height:1;color:var(--ink);
+  animation:marquee 25s linear infinite;
+  margin-bottom:0;
+}
+
+.marquee-row.rev{
+  animation:marquee-rev 30s linear infinite;
+  animation-delay:-5s;
+}
+
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes marquee-rev{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+
+.hero-inner{
+  position:relative;z-index:2;
+  max-width:1200px;margin:0 auto;width:100%;
+}
+
+.hero-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--ink);color:var(--lime);
+  padding:7px 16px 7px 10px;
+  border-radius:100px;
+  font-size:12px;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;
+  margin-bottom:36px;
+}
+
+.hero-chip-dot{
+  width:20px;height:20px;
+  background:var(--green);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;
+}
+
+.hero-layout{
+  display:grid;
+  grid-template-columns:1fr 420px;
+  gap:60px;align-items:center;
+}
+
+h1{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(52px,7vw,96px);
+  font-weight:700;line-height:.95;
+  letter-spacing:-4px;
+  margin-bottom:32px;
+}
+
+.h1-line{display:block}
+
+.h1-accent{
+  color:transparent;
+  -webkit-text-stroke:2px var(--ink);
+  position:relative;
+}
+
+.h1-green{
+  color:var(--green);
+  display:inline-flex;align-items:center;gap:16px;
+}
+
+.h1-tag{
+  display:inline-block;
+  background:var(--lime);
+  color:var(--ink);
+  font-size:14px;font-weight:700;
+  padding:6px 14px;border-radius:8px;
+  letter-spacing:0;
+  vertical-align:middle;
+  transform:rotate(-2deg);
+  font-family:'Cabinet Grotesk',sans-serif;
+}
+
+.hero-desc{
+  font-size:18px;line-height:1.65;
+  color:#4a4840;max-width:520px;
+  margin-bottom:44px;
+}
+
+.hero-desc b{color:var(--ink)}
+
+.hero-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+
+.btn-big{
+  background:var(--ink);color:var(--paper);
+  padding:16px 32px;border-radius:100px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:16px;font-weight:800;
+  text-decoration:none;border:none;cursor:none;
+  display:inline-flex;align-items:center;gap:10px;
+  transition:all .25s;
+  position:relative;overflow:hidden;
+}
+
+.btn-big::before{
+  content:'';position:absolute;inset:0;
+  background:var(--green);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform .3s ease;border-radius:inherit;
+}
+
+.btn-big:hover::before{transform:scaleX(1)}
+.btn-big:hover{color:var(--ink);transform:translateY(-3px);box-shadow:0 16px 48px rgba(0,0,0,.2)}
+
+.btn-big span{position:relative;z-index:1}
+
+.btn-outline{
+  background:transparent;color:var(--ink);
+  padding:16px 28px;border-radius:100px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:16px;font-weight:700;
+  text-decoration:none;border:2px solid var(--ink);
+  display:inline-flex;align-items:center;gap:8px;
+  transition:all .25s;cursor:none;
+}
+
+.btn-outline:hover{background:var(--ink);color:var(--paper);transform:translateY(-2px)}
+
+.hero-metrics{
+  display:flex;gap:40px;
+  margin-top:56px;padding-top:40px;
+  border-top:1px solid var(--border);
+}
+
+.metric-num{
+  font-family:'Clash Display',sans-serif;
+  font-size:44px;font-weight:700;
+  line-height:1;letter-spacing:-2px;
+}
+
+.metric-num.green{color:var(--green)}
+.metric-num.orange{color:var(--orange)}
+.metric-num.purple{color:var(--purple)}
+
+.metric-label{font-size:13px;color:var(--muted);margin-top:4px;font-weight:500}
+
+/* PHONE MOCKUP */
+.phone-scene{
+  position:relative;
+  display:flex;justify-content:center;
+  padding:20px 0;
+}
+
+.phone-shadow{
+  position:absolute;bottom:-20px;left:50%;
+  transform:translateX(-50%);
+  width:260px;height:40px;
+  background:radial-gradient(ellipse,rgba(0,0,0,0.2) 0%,transparent 70%);
+  filter:blur(12px);
+}
+
+.phone-float{
+  animation:float 5s ease-in-out infinite;
+}
+
+@keyframes float{
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  50%{transform:translateY(-16px) rotate(1deg)}
+}
+
+.phone{
+  width:300px;
+  background:#fff;
+  border-radius:48px;
+  border:3px solid var(--ink);
+  overflow:hidden;
+  box-shadow:
+    8px 8px 0 var(--ink),
+    0 40px 80px rgba(0,0,0,.12);
+  position:relative;
+}
+
+.phone-notch{
+  position:absolute;top:14px;left:50%;
+  transform:translateX(-50%);
+  width:80px;height:6px;
+  background:var(--ink);border-radius:100px;
+  z-index:10;
+}
+
+.phone-header{
+  background:var(--ink);
+  padding:40px 18px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+
+.p-avatar{
+  width:40px;height:40px;
+  background:linear-gradient(135deg,var(--green),var(--lime));
+  border-radius:50%;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+
+.p-name{font-size:15px;font-weight:700;color:#fff}
+
+.p-online{
+  font-size:11px;color:var(--green);
+  display:flex;align-items:center;gap:5px;
+  font-weight:600;
+}
+
+.p-dot{
+  width:6px;height:6px;
+  background:var(--green);border-radius:50%;
+  animation:breathe 2s infinite;
+}
+
+.phone-chat{
+  height:440px;
+  overflow-y:auto;
+  padding:14px 12px;
+  display:flex;flex-direction:column;gap:8px;
+  background:var(--cream);
+}
+
+.phone-chat::-webkit-scrollbar{width:0}
+
+.msg{max-width:88%;animation:msgPop .25s cubic-bezier(.34,1.56,.64,1)}
+
+@keyframes msgPop{
+  from{opacity:0;transform:scale(.85) translateY(8px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+
+.msg.bot{align-self:flex-start}
+.msg.user{align-self:flex-end}
+
+.bubble{
+  padding:10px 14px;
+  border-radius:18px;
+  font-size:13px;line-height:1.55;
+  font-weight:500;
+}
+
+.bot .bubble{
+  background:#fff;color:var(--ink);
+  border-bottom-left-radius:4px;
+  border:1px solid rgba(0,0,0,.07);
+  white-space:pre-wrap;
+}
+
+.user .bubble{
+  background:var(--ink);color:#fff;
+  border-bottom-right-radius:4px;
+}
+
+.msg-btns{
+  display:flex;flex-direction:column;gap:5px;
+  margin-top:7px;
+}
+
+.mb{
+  background:#fff;
+  border:1.5px solid var(--ink);
+  color:var(--ink);
+  padding:8px 12px;border-radius:12px;
+  font-size:12px;font-weight:700;
+  cursor:pointer;text-align:left;
+  font-family:'Cabinet Grotesk',sans-serif;
+  transition:all .15s;
+  display:flex;align-items:center;gap:6px;
+}
+
+.mb:hover{background:var(--ink);color:#fff;transform:translateX(3px)}
+
+.product-card{
+  background:#fff;
+  border:1.5px solid var(--ink);
+  border-radius:18px;overflow:hidden;
+  width:220px;
+  box-shadow:3px 3px 0 var(--ink);
+}
+
+.pc-img{
+  height:120px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:52px;
+}
+
+.pc-body{padding:12px}
+
+.pc-name{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:2px}
+
+.pc-price{
+  font-family:'Clash Display',sans-serif;
+  font-size:22px;font-weight:700;
+  color:var(--green-dark);letter-spacing:-0.5px;
+}
+
+.pc-stock{font-size:11px;color:#16a34a;font-weight:700;margin-top:3px}
+
+.pc-btns{display:flex;gap:6px;margin-top:10px}
+
+.pc-btns button{
+  flex:1;padding:8px 6px;
+  border-radius:10px;font-size:11px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-weight:800;cursor:pointer;border:none;
+  transition:all .15s;
+}
+
+.pc-book{background:var(--ink);color:#fff}
+.pc-book:hover{background:var(--green-dark)}
+.pc-back{background:var(--cream);color:var(--ink);border:1.5px solid var(--ink)!important}
+
+.phone-bar{
+  background:#fff;
+  border-top:1.5px solid rgba(0,0,0,.08);
+  padding:10px 12px;
+  display:flex;align-items:center;gap:8px;
+}
+
+.phone-bar input{
+  flex:1;background:var(--cream);
+  border:1.5px solid var(--border);
+  border-radius:100px;padding:8px 14px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:13px;font-weight:500;color:var(--ink);
+  outline:none;transition:border-color .2s;
+}
+
+.phone-bar input:focus{border-color:var(--green)}
+.phone-bar input::placeholder{color:var(--muted)}
+
+.send-btn{
+  width:36px;height:36px;
+  background:var(--ink);border:none;
+  border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:14px;
+  transition:all .2s;
+}
+
+.send-btn:hover{background:var(--green);transform:scale(1.1)}
+
+/* SECTIONS */
+.wrap{max-width:1200px;margin:0 auto;padding:0 48px}
+
+.section-label{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:800;
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:20px;
+}
+
+.section-label::before{
+  content:'';width:24px;height:2px;background:var(--green);
+}
+
+/* FEATURES */
+.features-section{
+  padding:120px 0;
+  background:var(--ink);
+  position:relative;overflow:hidden;
+}
+
+.features-section::before{
+  content:'ФУНКЦИИ';
+  position:absolute;top:-20px;right:-20px;
+  font-family:'Clash Display',sans-serif;
+  font-size:200px;font-weight:700;
+  color:rgba(255,255,255,0.03);
+  line-height:1;pointer-events:none;
+  letter-spacing:-8px;
+}
+
+.features-section .section-label{color:rgba(255,255,255,0.35)}
+.features-section .section-label::before{background:var(--lime)}
+
+.features-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(36px,5vw,64px);
+  font-weight:700;letter-spacing:-3px;
+  color:#fff;line-height:.95;
+  margin-bottom:16px;
+}
+
+.features-section h2 em{
+  color:var(--lime);font-style:normal;
+}
+
+.features-sub{
+  font-size:17px;color:rgba(255,255,255,0.45);
+  max-width:480px;margin-bottom:64px;line-height:1.65;
+}
+
+.feats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2px;
+}
+
+.feat{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);
+  padding:36px 32px;
+  transition:all .3s;
+  position:relative;overflow:hidden;
+  cursor:default;
+}
+
+.feat::after{
+  content:'';position:absolute;
+  bottom:0;left:0;right:0;height:3px;
+  background:var(--lime);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform .3s ease;
+}
+
+.feat:hover{
+  background:rgba(255,255,255,0.06);
+  transform:translateY(-4px);
+  z-index:1;
+}
+
+.feat:hover::after{transform:scaleX(1)}
+
+.feat-num{
+  font-family:'Clash Display',sans-serif;
+  font-size:13px;font-weight:700;
+  color:rgba(255,255,255,0.2);
+  letter-spacing:2px;margin-bottom:20px;
+}
+
+.feat-ico{font-size:32px;margin-bottom:14px;display:block}
+
+.feat-name{
+  font-family:'Clash Display',sans-serif;
+  font-size:19px;font-weight:700;
+  color:#fff;margin-bottom:10px;
+  letter-spacing:-0.5px;
+}
+
+.feat-text{
+  font-size:14px;color:rgba(255,255,255,0.45);
+  line-height:1.65;
+}
+
+.feat-money{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--lime);color:var(--ink);
+  font-size:11px;font-weight:800;
+  letter-spacing:.5px;text-transform:uppercase;
+  padding:4px 10px;border-radius:6px;
+  margin-top:14px;
+}
+
+/* MVP STRIP */
+.mvp-strip{
+  background:var(--green);
+  padding:80px 0;overflow:hidden;
+}
+
+.mvp-strip h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(32px,4.5vw,56px);
+  font-weight:700;letter-spacing:-2px;
+  color:var(--ink);margin-bottom:12px;
+}
+
+.mvp-strip p{
+  font-size:16px;color:rgba(6,6,18,0.6);
+  max-width:520px;margin-bottom:52px;
+  line-height:1.65;
+}
+
+.mvp-flow{
+  display:flex;align-items:center;
+  gap:0;overflow-x:auto;padding-bottom:8px;
+}
+
+.mvp-flow::-webkit-scrollbar{height:3px}
+.mvp-flow::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.2);border-radius:2px}
+
+.mvp-step{
+  display:flex;align-items:center;
+  flex-shrink:0;
+}
+
+.mvp-box{
+  background:#fff;
+  border:2px solid var(--ink);
+  border-radius:16px;
+  padding:20px 22px;
+  text-align:center;
+  min-width:130px;
+  box-shadow:4px 4px 0 rgba(0,0,0,0.15);
+  transition:transform .2s;
+}
+
+.mvp-box:hover{transform:translateY(-4px)}
+
+.mvp-ico{font-size:28px;margin-bottom:8px}
+
+.mvp-label{
+  font-size:13px;font-weight:800;
+  color:var(--ink);line-height:1.3;
+}
+
+.mvp-arrow{
+  width:48px;height:2px;
+  background:rgba(0,0,0,0.2);
+  position:relative;flex-shrink:0;
+}
+
+.mvp-arrow::after{
+  content:'';position:absolute;
+  right:-6px;top:-4px;
+  border:5px solid transparent;
+  border-left-color:rgba(0,0,0,0.3);
+}
+
+/* MONEY SECTION */
+.money-section{
+  padding:120px 0;
+  background:var(--paper);
+}
+
+.money-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(36px,5vw,64px);
+  font-weight:700;letter-spacing:-3px;
+  margin-bottom:64px;line-height:.95;
+}
+
+.money-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+}
+
+.money-card{
+  background:#fff;
+  border:2px solid var(--ink);
+  border-radius:24px;padding:40px;
+  position:relative;overflow:hidden;
+  transition:all .3s;
+  box-shadow:5px 5px 0 var(--ink);
+}
+
+.money-card:hover{
+  transform:translate(-3px,-3px);
+  box-shadow:8px 8px 0 var(--ink);
+}
+
+.money-card.hero-card{
+  grid-column:span 2;
+  background:var(--ink);color:#fff;
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:40px;align-items:center;
+  box-shadow:5px 5px 0 var(--green);
+}
+
+.money-card.hero-card:hover{
+  box-shadow:8px 8px 0 var(--green);
+}
+
+.money-num{
+  font-family:'Clash Display',sans-serif;
+  font-size:80px;font-weight:700;
+  color:rgba(0,0,0,0.06);
+  position:absolute;top:16px;right:24px;
+  line-height:1;pointer-events:none;letter-spacing:-4px;
+}
+
+.money-card.hero-card .money-num{color:rgba(255,255,255,0.06)}
+
+.money-tag{
+  display:inline-block;
+  background:var(--lime);color:var(--ink);
+  font-size:11px;font-weight:800;
+  padding:4px 12px;border-radius:6px;
+  letter-spacing:1px;text-transform:uppercase;
+  margin-bottom:16px;
+}
+
+.money-title{
+  font-family:'Clash Display',sans-serif;
+  font-size:24px;font-weight:700;
+  letter-spacing:-0.8px;margin-bottom:12px;
+}
+
+.money-text{
+  font-size:15px;color:var(--muted);
+  line-height:1.7;
+}
+
+.money-card.hero-card .money-text{color:rgba(255,255,255,.5)}
+.money-card.hero-card .money-title{color:#fff}
+
+.example-bubble{
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:16px;padding:20px 22px;
+  font-size:15px;line-height:1.65;
+  color:rgba(255,255,255,.8);
+  position:relative;
+}
+
+.example-bubble::before{
+  content:'Telegram-уведомление';
+  position:absolute;top:-11px;left:16px;
+  background:var(--green);color:var(--ink);
+  font-size:10px;font-weight:800;
+  padding:3px 10px;border-radius:5px;
+  letter-spacing:.5px;text-transform:uppercase;
+}
+
+.example-bubble em{color:var(--green);font-style:normal;font-weight:700}
+
+/* NICHES */
+.niches-section{
+  padding:100px 0;
+  background:var(--cream);
+  overflow:hidden;
+}
+
+.niches-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(36px,5vw,64px);
+  font-weight:700;letter-spacing:-3px;
+  margin-bottom:16px;
+}
+
+.niches-sub{
+  font-size:16px;color:var(--muted);
+  margin-bottom:56px;max-width:520px;
+}
+
+.niches-scroll{
+  display:flex;gap:16px;
+  overflow-x:auto;padding-bottom:16px;
+  -webkit-overflow-scrolling:touch;
+}
+
+.niches-scroll::-webkit-scrollbar{height:3px}
+.niches-scroll::-webkit-scrollbar-thumb{background:var(--ink);border-radius:2px}
+
+.niche{
+  flex-shrink:0;
+  background:#fff;
+  border:2px solid var(--ink);
+  border-radius:20px;padding:28px 24px;
+  min-width:180px;
+  transition:all .2s;
+  box-shadow:4px 4px 0 var(--ink);
+  cursor:default;
+}
+
+.niche:hover{
+  transform:translate(-2px,-2px);
+  box-shadow:6px 6px 0 var(--ink);
+}
+
+.niche:nth-child(even){background:var(--lime)}
+.niche:nth-child(3n){background:var(--ink);border-color:var(--ink)}
+.niche:nth-child(3n) .niche-name{color:#fff}
+.niche:nth-child(3n) .niche-desc{color:rgba(255,255,255,0.5)}
+
+.niche-ico{font-size:36px;margin-bottom:12px}
+
+.niche-name{
+  font-family:'Clash Display',sans-serif;
+  font-size:17px;font-weight:700;
+  letter-spacing:-0.5px;margin-bottom:6px;
+}
+
+.niche-desc{font-size:12px;color:var(--muted);line-height:1.5;font-weight:500}
+
+/* ADVANCED */
+.adv-section{
+  padding:100px 0;
+  background:#fff;
+}
+
+.adv-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(36px,5vw,60px);
+  font-weight:700;letter-spacing:-3px;
+  margin-bottom:56px;
+}
+
+.adv-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+
+.adv-item{
+  background:var(--cream);
+  border:1.5px solid var(--border);
+  border-radius:14px;padding:18px 16px;
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;font-weight:700;
+  transition:all .2s;cursor:default;
+}
+
+.adv-item:hover{
+  background:var(--ink);color:#fff;
+  border-color:var(--ink);
+  transform:scale(1.03);
+}
+
+.adv-item:hover .adv-ico{filter:grayscale(0)}
+
+.adv-ico{font-size:20px;flex-shrink:0}
+
+/* PRICING */
+.pricing-section{
+  padding:120px 0;
+  background:var(--ink);
+  position:relative;overflow:hidden;
+}
+
+.pricing-section::before{
+  content:'₽';
+  position:absolute;right:-60px;bottom:-60px;
+  font-family:'Clash Display',sans-serif;
+  font-size:500px;font-weight:700;
+  color:rgba(255,255,255,0.02);
+  line-height:1;pointer-events:none;
+}
+
+.pricing-section .section-label{color:rgba(255,255,255,.3)}
+.pricing-section .section-label::before{background:var(--lime)}
+
+.pricing-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(36px,5vw,64px);
+  font-weight:700;letter-spacing:-3px;
+  color:#fff;margin-bottom:16px;
+}
+
+.pricing-section h2 em{color:var(--lime);font-style:normal}
+
+.pricing-sub{
+  font-size:16px;color:rgba(255,255,255,.4);
+  max-width:480px;margin-bottom:64px;
+}
+
+.plans{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+
+.plan{
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:24px;padding:36px 28px;
+  position:relative;transition:all .3s;
+}
+
+.plan:hover{
+  background:rgba(255,255,255,0.07);
+  transform:translateY(-6px);
+}
+
+.plan.pop{
+  background:var(--lime);
+  border-color:var(--lime);
+}
+
+.plan.pop *{color:var(--ink)!important}
+
+.plan-badge{
+  position:absolute;top:-13px;left:50%;
+  transform:translateX(-50%);
+  background:var(--orange);color:#fff;
+  font-size:11px;font-weight:800;
+  padding:4px 16px;border-radius:100px;
+  white-space:nowrap;letter-spacing:.5px;
+  text-transform:uppercase;
+}
+
+.plan-tier{
+  font-size:12px;font-weight:800;
+  color:rgba(255,255,255,.35);
+  letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:20px;
+}
+
+.plan-price{
+  font-family:'Clash Display',sans-serif;
+  font-size:48px;font-weight:700;
+  color:#fff;letter-spacing:-3px;
+  line-height:1;margin-bottom:6px;
+}
+
+.plan-price small{
+  font-size:20px;letter-spacing:-1px;color:rgba(255,255,255,.5)
+}
+
+.plan-period{font-size:13px;color:rgba(255,255,255,.35);margin-bottom:28px;font-weight:500}
+
+.plan-feats{list-style:none;display:flex;flex-direction:column;gap:9px;margin-bottom:28px}
+
+.plan-feats li{
+  font-size:13px;color:rgba(255,255,255,.6);
+  display:flex;align-items:flex-start;gap:8px;
+  font-weight:500;line-height:1.4;
+}
+
+.plan-feats li::before{content:'✓';color:var(--green);font-weight:800;font-size:12px;margin-top:1px;flex-shrink:0}
+
+.plan-feats li.no{opacity:.35}
+.plan-feats li.no::before{content:'✕';color:#ef4444}
+
+.plan-btn{
+  width:100%;padding:14px;border-radius:14px;
+  border:none;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:15px;font-weight:800;
+  cursor:pointer;transition:all .2s;
+}
+
+.plan:not(.pop) .plan-btn{
+  background:rgba(255,255,255,.08);color:#fff;
+}
+
+.plan:not(.pop) .plan-btn:hover{background:rgba(255,255,255,.14)}
+
+.plan.pop .plan-btn{
+  background:var(--ink);color:#fff;
+}
+
+.plan.pop .plan-btn:hover{background:var(--green-dark)}
+
+/* CTA */
+.cta-section{
+  padding:120px 48px;
+  text-align:center;
+  background:var(--paper);
+  overflow:hidden;position:relative;
+}
+
+.cta-section::before{
+  content:'';position:absolute;
+  top:50%;left:50%;
+  width:800px;height:800px;
+  background:radial-gradient(circle,rgba(0,201,122,0.1) 0%,transparent 65%);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+
+.cta-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--green);color:var(--ink);
+  padding:7px 18px;border-radius:100px;
+  font-size:13px;font-weight:800;
+  margin-bottom:28px;
+}
+
+.cta-section h2{
+  font-family:'Clash Display',sans-serif;
+  font-size:clamp(48px,8vw,100px);
+  font-weight:700;letter-spacing:-5px;
+  line-height:.9;margin-bottom:24px;
+  position:relative;z-index:1;
+}
+
+.cta-sub{
+  font-size:18px;color:var(--muted);
+  max-width:480px;margin:0 auto 44px;
+  line-height:1.65;position:relative;z-index:1;
+}
+
+.cta-actions{
+  display:flex;justify-content:center;
+  gap:14px;flex-wrap:wrap;
+  position:relative;z-index:1;
+}
+
+.cta-note{
+  margin-top:24px;font-size:13px;
+  color:var(--muted);
+  position:relative;z-index:1;
+}
+
+/* FOOTER */
+footer{
+  background:var(--ink);
+  padding:48px;
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:20px;
+}
+
+.f-logo{
+  font-family:'Clash Display',sans-serif;
+  font-size:22px;font-weight:700;
+  color:#fff;
+}
+
+.f-logo span{color:var(--green)}
+
+.f-copy{font-size:13px;color:rgba(255,255,255,.3);font-weight:500}
+
+/* DIVIDER */
+.divider{
+  height:2px;
+  background:linear-gradient(90deg,var(--green),var(--lime),var(--orange),var(--purple),var(--blue));
+}
+
+/* SCROLL REVEAL */
+.reveal{
+  opacity:0;transform:translateY(32px);
+  transition:opacity .7s ease,transform .7s ease;
+}
+.reveal.in{opacity:1;transform:translateY(0)}
+
+/* RESPONSIVE */
+@media(max-width:960px){
+  .hero-layout{grid-template-columns:1fr}
+  nav ul{display:none}
+  nav{padding:0 20px}
+  .wrap{padding:0 20px}
+  .feats{grid-template-columns:1fr 1fr}
+  .money-grid{grid-template-columns:1fr}
+  .money-card.hero-card{grid-template-columns:1fr;grid-column:span 1}
+  .plans{grid-template-columns:1fr}
+  .adv-grid{grid-template-columns:1fr 1fr}
+  .hero{padding:100px 20px 60px}
+  .cta-section{padding:80px 20px}
+  footer{padding:32px 20px}
+  h1{letter-spacing:-2px}
+  .mvp-flow{padding:0 20px 16px}
+}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cur"></div>
+<div class="cursor-ring" id="ring"></div>
+
+<nav>
+  <div class="nav-logo">
+    <div class="logo-dot"></div>
+    BotRetail
+  </div>
+  <ul>
+    <li><a href="#features">Функции</a></li>
+    <li><a href="#money">Монетизация</a></li>
+    <li><a href="#niches">Ниши</a></li>
+    <li><a href="#pricing">Цены</a></li>
+  </ul>
+  <a href="https://t.me/iShopapp_bot" target="_blank" class="nav-cta"><span>🤖 Перейти в бота</span> →</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-marquee-bg" aria-hidden="true">
+    <div class="marquee-row">
+      TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;•&nbsp;
+      TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;• TELEGRAM&nbsp;БОТ&nbsp;•&nbsp;
+    </div>
+    <div class="marquee-row rev">
+      ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;•&nbsp;
+      ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;• ОФЛАЙН&nbsp;МАГАЗИН&nbsp;•&nbsp;
+    </div>
+  </div>
+
+  <div class="hero-inner">
+    <div class="hero-chip">
+      <div class="hero-chip-dot">✦</div>
+      Telegram-бот для офлайн-ритейла
+    </div>
+
+    <div class="hero-layout">
+      <div>
+        <h1>
+          <span class="h1-line">Бот,</span>
+          <span class="h1-line h1-accent">который</span>
+          <span class="h1-line h1-green">
+            продаёт
+            <span class="h1-tag">24/7</span>
+          </span>
+        </h1>
+
+        <p class="hero-desc">
+          Не «модный чат-бот», а <b>рабочий инструмент</b>. Бронь товара, наличие в реальном времени, программа лояльности, персональные акции. Закрывает задачи — <b>приводит людей в магазин</b>.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#demo" class="btn-big"><span>▶ Попробовать демо</span></a>
+          <a href="#pricing" class="btn-outline">Стоимость →</a>
+        </div>
+
+        <div class="hero-metrics">
+          <div>
+            <div class="metric-num green">+34%</div>
+            <div class="metric-label">повторных визитов</div>
+          </div>
+          <div>
+            <div class="metric-num orange">−60%</div>
+            <div class="metric-label">нагрузки на продавцов</div>
+          </div>
+          <div>
+            <div class="metric-num purple">3–7</div>
+            <div class="metric-label">дней до запуска</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHONE DEMO -->
+      <div class="phone-scene" id="demo">
+        <div class="phone-float">
+          <div class="phone">
+            <div class="phone-notch"></div>
+            <div class="phone-header">
+              <div class="p-avatar">🛍</div>
+              <div>
+                <div class="p-name">Магазин «Ваш бренд»</div>
+                <div class="p-online"><div class="p-dot"></div>онлайн</div>
+              </div>
+            </div>
+            <div class="phone-chat" id="chatBox"></div>
+            <div class="phone-bar">
+              <input type="text" id="userInput" placeholder="Написать...">
+              <button class="send-btn" onclick="sendMsg()">➤</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-shadow"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<section class="features-section" id="features">
+  <div class="wrap">
+    <div class="section-label">Функциональность</div>
+    <h2>10 функций,<br>которые <em>работают</em></h2>
+    <p class="features-sub">Проверенный набор для офлайн-ритейла. Ничего лишнего — только то, что закрывает реальные задачи.</p>
+
+    <div class="feats">
+      <div class="feat reveal">
+        <div class="feat-num">01</div>
+        <span class="feat-ico">🗂</span>
+        <div class="feat-name">Каталог товаров</div>
+        <div class="feat-text">Фото, цена, наличие, описание, размеры и цвета. Категории и поиск — не хаотичный склад, а удобная навигация.</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">02</div>
+        <span class="feat-ico">📦</span>
+        <div class="feat-name">Наличие онлайн</div>
+        <div class="feat-text">«Есть ли товар сейчас?» С привязкой к конкретной точке. Клиент не едет зря — доверие растёт.</div>
+      </div>
+      <div class="feat reveal" style="border-color:rgba(198,255,78,0.2);background:rgba(198,255,78,0.04)">
+        <div class="feat-num">03</div>
+        <span class="feat-ico">🔒</span>
+        <div class="feat-name">Бронирование</div>
+        <div class="feat-text">Выбрал → забронировал на 2–24 часа → пришёл в магазин. Конверсия из брони в покупку — 80–90%.</div>
+        <div class="feat-money">💰 Даёт деньги</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">04</div>
+        <span class="feat-ico">🎁</span>
+        <div class="feat-name">Акции и скидки</div>
+        <div class="feat-text">Купоны, промокоды, «покажи это сообщение на кассе». Персональные предложения по истории покупок.</div>
+        <div class="feat-money">💰 Даёт деньги</div>
+      </div>
+      <div class="feat reveal" style="border-color:rgba(255,92,53,0.15)">
+        <div class="feat-num">05</div>
+        <span class="feat-ico">⭐</span>
+        <div class="feat-name">Лояльность</div>
+        <div class="feat-text">Баллы, статус, история покупок, персональные скидки, день рождения. Клиент возвращается снова и снова.</div>
+        <div class="feat-money">💰 Даёт деньги</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">06</div>
+        <span class="feat-ico">📍</span>
+        <div class="feat-name">Адрес и маршрут</div>
+        <div class="feat-text">Кнопка «Как добраться», карта, парковка, вход. Клиент не позвонит без нужды и не потеряется.</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">07</div>
+        <span class="feat-ico">💬</span>
+        <div class="feat-name">Связь с продавцом</div>
+        <div class="feat-text">«Отложите», «Есть ли размер?», «Помогите подобрать». Операторский режим, не автоответчик.</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">08</div>
+        <span class="feat-ico">🔔</span>
+        <div class="feat-name">Уведомления</div>
+        <div class="feat-text">Новые поступления, распродажи, напоминание о броне. «Товар снова в наличии» — возвращает тех, кто не купил.</div>
+        <div class="feat-money">💰 Даёт деньги</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">09</div>
+        <span class="feat-ico">📋</span>
+        <div class="feat-name">Обратная связь</div>
+        <div class="feat-text">NPS, оценка обслуживания, жалоба, предложение. Видите проблемы до негативных отзывов в интернете.</div>
+      </div>
+      <div class="feat reveal">
+        <div class="feat-num">10</div>
+        <span class="feat-ico">❓</span>
+        <div class="feat-name">FAQ</div>
+        <div class="feat-text">Возврат, обмен, гарантия, оплата, самовывоз. Снимает 80% однотипных звонков с продавцов.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- MVP -->
+<div class="mvp-strip">
+  <div class="wrap">
+    <div class="section-label" style="color:rgba(6,6,18,.45)"><span style="background:var(--ink)"></span>Минимально жизнеспособная версия</div>
+    <h2>Не «супербот» —<br>а то, что работает с первого дня</h2>
+    <p>Частая ошибка — вложиться в сложный каталог, который никто не использует. MVP запускается быстро и начинает зарабатывать сразу.</p>
+  </div>
+
+  <div class="mvp-flow wrap" style="padding-top:0;padding-bottom:0">
+    <div class="mvp-step">
+      <div class="mvp-box">
+        <div class="mvp-ico">🗂</div>
+        <div class="mvp-label">Каталог</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box">
+        <div class="mvp-ico">📦</div>
+        <div class="mvp-label">Наличие</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box" style="background:var(--ink);border-color:var(--ink)">
+        <div class="mvp-ico">🔒</div>
+        <div class="mvp-label" style="color:#fff">Бронь</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box">
+        <div class="mvp-ico">📍</div>
+        <div class="mvp-label">Адрес</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box">
+        <div class="mvp-ico">💬</div>
+        <div class="mvp-label">Продавец</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box">
+        <div class="mvp-ico">🎁</div>
+        <div class="mvp-label">Акции</div>
+      </div>
+    </div>
+    <div class="mvp-arrow"></div>
+    <div class="mvp-step">
+      <div class="mvp-box" style="background:var(--lime);border-color:var(--ink)">
+        <div class="mvp-ico">⭐</div>
+        <div class="mvp-label">Лояльность</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- MONEY -->
+<section class="money-section" id="money">
+  <div class="wrap">
+    <div class="section-label">Монетизация</div>
+    <h2>Функции, которые<br>реально дают деньги</h2>
+
+    <div class="money-grid reveal">
+      <div class="money-card">
+        <div class="money-num">01</div>
+        <div class="money-tag">Конверсия 80–90%</div>
+        <div class="money-title">🔒 Бронь товара</div>
+        <div class="money-text">Забронировал онлайн → гарантированно пришёл в магазин. Снижает отказы из-за «а вдруг не будет». Самая прибыльная функция.</div>
+      </div>
+      <div class="money-card">
+        <div class="money-num">02</div>
+        <div class="money-tag">Возвращаемость ×3</div>
+        <div class="money-title">⭐ Лояльность</div>
+        <div class="money-text">Баллы и статус создают привычку. Клиент с программой лояльности покупает в 3–4 раза чаще, чем случайный.</div>
+      </div>
+      <div class="money-card hero-card">
+        <div>
+          <div class="money-num">03</div>
+          <div class="money-tag">Самая ценная функция</div>
+          <div class="money-title">🎯 Персональные акции</div>
+          <div class="money-text">Бот знает историю покупок и делает предложения, от которых невозможно отказаться. Работает автоматически — без участия продавца.</div>
+        </div>
+        <div class="example-bubble">
+          «Вы покупали корм для кошки <em>3 недели назад</em>. Пора пополнить запас — <em>сегодня скидка 10% до 20:00</em>. Забронировать?» 🐱
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- NICHES -->
+<section class="niches-section" id="niches">
+  <div class="wrap">
+    <div class="section-label">Применимость</div>
+    <h2>Любой офлайн-магазин.<br>Любой регион.</h2>
+    <p class="niches-sub">Одна система — разные ниши. Меняется тематика, логика уведомлений и лояльности. Всё остальное универсально.</p>
+  </div>
+
+  <div class="niches-scroll wrap" style="padding-bottom:0">
+    <div class="niche">
+      <div class="niche-ico">🐾</div>
+      <div class="niche-name">Зоомагазин</div>
+      <div class="niche-desc">Напоминания о повторных покупках, запись к ветеринару</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">👗</div>
+      <div class="niche-name">Одежда</div>
+      <div class="niche-desc">Бронь примерки, новые поступления, наличие размеров</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">💊</div>
+      <div class="niche-name">Аптека</div>
+      <div class="niche-desc">Наличие препаратов, напоминание о приёме, очередь</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">🍕</div>
+      <div class="niche-name">Кафе / Фастфуд</div>
+      <div class="niche-desc">Бронь стола, меню дня, программа лояльности</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">🔧</div>
+      <div class="niche-name">Стройматериалы</div>
+      <div class="niche-desc">Наличие позиций, резерв на складе, расчёт</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">💄</div>
+      <div class="niche-name">Косметика</div>
+      <div class="niche-desc">Подбор, повторные покупки, запись к мастеру</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">📚</div>
+      <div class="niche-name">Книги</div>
+      <div class="niche-desc">Новинки по жанрам, резерв, рекомендации</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">🏋️</div>
+      <div class="niche-name">Спорттовары</div>
+      <div class="niche-desc">Подбор по виду спорта, консультация</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">🌸</div>
+      <div class="niche-name">Цветочный</div>
+      <div class="niche-desc">Напоминания к праздникам, предзаказ букетов</div>
+    </div>
+    <div class="niche">
+      <div class="niche-ico">🍷</div>
+      <div class="niche-name">Алкоголь / Гастро</div>
+      <div class="niche-desc">Новые поступления, подборки, дегустации</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ADVANCED -->
+<section class="adv-section">
+  <div class="wrap">
+    <div class="section-label">Масштабирование</div>
+    <h2>Модули для роста —<br>добавляются после MVP</h2>
+
+    <div class="adv-grid reveal">
+      <div class="adv-item"><span class="adv-ico">📝</span>Анкета для подбора</div>
+      <div class="adv-item"><span class="adv-ico">🤖</span>Рекомендации ИИ</div>
+      <div class="adv-item"><span class="adv-ico">🧾</span>Электронные чеки</div>
+      <div class="adv-item"><span class="adv-ico">📅</span>Запись на консультацию</div>
+      <div class="adv-item"><span class="adv-ico">🔢</span>Очередь к специалисту</div>
+      <div class="adv-item"><span class="adv-ico">🔗</span>Интеграция с 1С</div>
+      <div class="adv-item"><span class="adv-ico">📊</span>Сегментация клиентов</div>
+      <div class="adv-item"><span class="adv-ico">📧</span>Рассылки по интересам</div>
+      <div class="adv-item"><span class="adv-ico">👥</span>Реферальная программа</div>
+      <div class="adv-item"><span class="adv-ico">🎰</span>Розыгрыши и игры</div>
+      <div class="adv-item"><span class="adv-ico">🏪</span>МойСклад / Poster / iiko</div>
+      <div class="adv-item"><span class="adv-ico">📱</span>Несколько точек продаж</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="wrap">
+    <div class="section-label">Пакеты</div>
+    <h2>Инвестиция<br>в <em>рост продаж</em></h2>
+    <p class="pricing-sub">Всё настраивается под ваш магазин, регион и специфику бизнеса. Запуск за 3–7 дней.</p>
+
+    <div class="plans">
+      <div class="plan reveal">
+        <div class="plan-tier">Старт</div>
+        <div class="plan-price">25 000 <small>₽</small></div>
+        <div class="plan-period">разовая оплата + настройка</div>
+        <ul class="plan-feats">
+          <li>Каталог товаров</li>
+          <li>Проверка наличия</li>
+          <li>Бронирование</li>
+          <li>Адрес и маршрут</li>
+          <li>FAQ</li>
+          <li class="no">Программа лояльности</li>
+          <li class="no">Персональные акции</li>
+          <li class="no">Интеграция с 1С</li>
+        </ul>
+        <button class="plan-btn">Заказать</button>
+      </div>
+
+      <div class="plan pop reveal">
+        <div class="plan-badge">🔥 Популярный</div>
+        <div class="plan-tier">Бизнес</div>
+        <div class="plan-price">55 000 <small>₽</small></div>
+        <div class="plan-period">разовая оплата + настройка</div>
+        <ul class="plan-feats">
+          <li>Все функции «Старта»</li>
+          <li>Программа лояльности</li>
+          <li>Персональные акции</li>
+          <li>Связь с продавцом</li>
+          <li>Уведомления</li>
+          <li>Сбор отзывов / NPS</li>
+          <li class="no">Интеграция с 1С</li>
+          <li class="no">Несколько точек</li>
+        </ul>
+        <button class="plan-btn">Заказать</button>
+      </div>
+
+      <div class="plan reveal">
+        <div class="plan-tier">Премиум</div>
+        <div class="plan-price">120 000 <small>₽</small></div>
+        <div class="plan-period">разовая оплата + настройка</div>
+        <ul class="plan-feats">
+          <li>Все функции «Бизнеса»</li>
+          <li>Интеграция с 1С / МойСклад</li>
+          <li>Несколько точек продаж</li>
+          <li>Рекомендательная система</li>
+          <li>Сегментация клиентов</li>
+          <li>Реферальная программа</li>
+          <li>Аналитика и дашборд</li>
+          <li>3 месяца поддержки</li>
+        </ul>
+        <button class="plan-btn">Заказать</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-chip">✦ Готово к внедрению</div>
+  <h2>Запустим<br>за 7 дней</h2>
+  <p class="cta-sub">Оставьте ваш Telegram — свяжемся, покажем демо под вашу нишу и ответим на все вопросы. Бесплатно.</p>
+
+  <div class="lead-form" id="leadForm">
+    <div class="lead-input-wrap">
+      <span class="lead-at">@</span>
+      <input
+        type="text"
+        id="tgInput"
+        class="lead-input"
+        placeholder="ваш_username"
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+    <button class="lead-btn" onclick="submitLead()">
+      <span class="lead-btn-text">Получить демо →</span>
+    </button>
+  </div>
+
+  <div class="lead-success" id="leadSuccess" style="display:none">
+    <div class="lead-success-icon">✓</div>
+    <div class="lead-success-title">Заявка принята!</div>
+    <div class="lead-success-sub">Напишем вам в Telegram в течение 15 минут 🚀</div>
+  </div>
+
+  <!-- Упоминание бота -->
+  <div style="margin-top: 28px; text-align: center;">
+    <p style="font-size: 15px; font-weight: 500;">
+      🤖 Наш рабочий бот в Telegram: 
+      <a href="https://t.me/iShopapp_bot" target="_blank" style="color: var(--green); font-weight: 800; text-decoration: none; border-bottom: 2px solid var(--green);">
+        @iShopapp_bot
+      </a>
+    </p>
+  </div>
+
+  <p class="cta-note">Работаем с любым регионом · Любая ниша · Под ключ</p>
+</section>
+
+<style>
+.lead-form{
+  display:flex;gap:12px;justify-content:center;
+  flex-wrap:wrap;margin-bottom:20px;
+  position:relative;z-index:1;
+}
+
+.lead-input-wrap{
+  display:flex;align-items:center;
+  background:#fff;
+  border:2px solid var(--ink);
+  border-radius:100px;
+  padding:0 20px 0 16px;
+  width:300px;
+  box-shadow:4px 4px 0 var(--ink);
+  transition:all .2s;
+}
+
+.lead-input-wrap:focus-within{
+  box-shadow:6px 6px 0 var(--green);
+  border-color:var(--green);
+}
+
+.lead-at{
+  font-family:'Clash Display',sans-serif;
+  font-size:22px;font-weight:700;
+  color:var(--green);margin-right:4px;
+  line-height:1;
+}
+
+.lead-input{
+  flex:1;border:none;outline:none;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:17px;font-weight:700;
+  color:var(--ink);background:transparent;
+  padding:16px 0;
+}
+
+.lead-input::placeholder{color:#bbb;font-weight:500}
+
+.lead-btn{
+  background:var(--ink);color:#fff;
+  border:2px solid var(--ink);
+  padding:16px 32px;border-radius:100px;
+  font-family:'Cabinet Grotesk',sans-serif;
+  font-size:16px;font-weight:800;
+  cursor:pointer;
+  box-shadow:4px 4px 0 var(--ink);
+  transition:all .2s;
+  position:relative;overflow:hidden;
+}
+
+.lead-btn::before{
+  content:'';position:absolute;inset:0;
+  background:var(--green);
+  transform:scaleX(0);transform-origin:left;
+  transition:transform .3s ease;border-radius:inherit;
+}
+
+.lead-btn:hover::before{transform:scaleX(1)}
+.lead-btn:hover{color:var(--ink);transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+
+.lead-btn-text{position:relative;z-index:1}
+
+.lead-error{
+  color:var(--orange);font-size:13px;font-weight:700;
+  margin-top:-12px;margin-bottom:12px;
+  position:relative;z-index:1;
+}
+
+.lead-success{
+  text-align:center;position:relative;z-index:1;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes popIn{
+  from{opacity:0;transform:scale(.8)}
+  to{opacity:1;transform:scale(1)}
+}
+
+.lead-success-icon{
+  width:64px;height:64px;
+  background:var(--green);
+  border:2px solid var(--ink);
+  border-radius:50%;
+  font-size:28px;font-weight:900;color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+  box-shadow:4px 4px 0 var(--ink);
+}
+
+.lead-success-title{
+  font-family:'Clash Display',sans-serif;
+  font-size:28px;font-weight:700;
+  letter-spacing:-1px;margin-bottom:8px;
+}
+
+.lead-success-sub{
+  font-size:16px;color:var(--muted);
+}
+
+@media(max-width:600px){
+  .lead-input-wrap{width:100%}
+  .lead-btn{width:100%;text-align:center}
+  .lead-form{flex-direction:column;align-items:stretch;padding:0 20px}
+}
+</style>
+
+<footer>
+  <div>
+    <div class="f-logo">Bot<span>Retail</span></div>
+    <div class="f-copy" style="margin-top:6px">Telegram-боты для офлайн-магазинов под ключ</div>
+  </div>
+  <div class="f-copy">
+    <a href="https://t.me/iShopapp_bot" target="_blank" style="color: var(--green); text-decoration: none;">@iShopapp_bot</a> — запустите демо прямо сейчас
+  </div>
+</footer>
+
+<script>
+// CURSOR
+const cur = document.getElementById('cur');
+const ring = document.getElementById('ring');
+let mx=0,my=0,rx=0,ry=0;
+
+document.addEventListener('mousemove',e=>{
+  mx=e.clientX;my=e.clientY;
+  cur.style.left=mx+'px';cur.style.top=my+'px';
+});
+
+function animRing(){
+  rx+=(mx-rx)*.12;ry+=(my-ry)*.12;
+  ring.style.left=rx+'px';ring.style.top=ry+'px';
+  requestAnimationFrame(animRing);
+}
+animRing();
+
+document.querySelectorAll('a,button,.feat,.niche,.plan,.money-card,.adv-item,.mvp-box').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{
+    cur.style.width='20px';cur.style.height='20px';
+    ring.style.width='60px';ring.style.height='60px';
+    ring.style.borderColor='var(--green)';
+  });
+  el.addEventListener('mouseleave',()=>{
+    cur.style.width='12px';cur.style.height='12px';
+    ring.style.width='40px';ring.style.height='40px';
+    ring.style.borderColor='var(--ink)';
+  });
+});
+
+// CHAT
+const chatBox = document.getElementById('chatBox');
+const inp = document.getElementById('userInput');
+
+const scripts = {
+  start:{
+    text:"Привет! 👋 Я бот магазина «Ваш бренд»\n\nЧем могу помочь?",
+    btns:["🗂 Каталог","📦 Наличие товара","🔒 Забронировать","⭐ Лояльность","📍 Адрес и часы","🎁 Акции","💬 Продавец"]
+  },
+  "🗂 Каталог":{
+    text:"Выберите категорию:",
+    btns:["🐾 Корм для животных","🧴 Уход и гигиена","🎾 Игрушки","◀ Меню"]
+  },
+  "🐾 Корм для животных":{product:{bg:"linear-gradient(135deg,#d4f5e0,#a8edca)",emoji:"🐱",name:"Корм «ProBalance» 2кг",price:"890 ₽",stock:"✅ В наличии — 7 шт."}},
+  "🧴 Уход и гигиена":{product:{bg:"linear-gradient(135deg,#fce4ec,#f8bbd0)",emoji:"🧴",name:"Шампунь гипоаллергенный",price:"450 ₽",stock:"✅ В наличии — 12 шт."}},
+  "🎾 Игрушки":{product:{bg:"linear-gradient(135deg,#fff9c4,#fff176)",emoji:"🎾",name:"Игрушка-мышка с мятой",price:"180 ₽",stock:"✅ В наличии — 23 шт."}},
+  "📦 Наличие товара":{
+    text:"Введите название или артикул — проверю наличие прямо сейчас 🔍",
+    btns:["◀ Меню"]
+  },
+  "🔒 Забронировать":{
+    text:"Бронирование товара\n\n⏱ Бронь действует 24 часа. Товар будет отложен специально для вас.\n\nВыберите товар:",
+    btns:["🐾 Корм для животных","🧴 Уход и гигиена","◀ Меню"]
+  },
+  "⭐ Лояльность":{
+    text:"🌟 Ваш профиль\n\n├ Статус: Серебряный\n├ Баллов: 1 240 ₽\n├ Покупок: 8\n└ Скидка: 7%\n\nДо Золотого — ещё 3 покупки 🏆",
+    btns:["📜 История покупок","🎁 Мои бонусы","◀ Меню"]
+  },
+  "📍 Адрес и часы":{
+    text:"📍 ул. Ленина, 45, ТЦ «Центральный», 2 эт.\n\n⏰ Пн–Пт: 10:00–21:00\n    Сб–Вс: 10:00–22:00\n\n🚇 5 мин от ст. метро «Центральная»\n🚗 Парковка бесплатно",
+    btns:["🗺 Открыть карту","◀ Меню"]
+  },
+  "🎁 Акции":{
+    text:"🔥 Акции сегодня\n\n1. Корм для кошек — скидка 10% до 20:00\n2. От 1500 ₽ — бесплатный аксессуар\n3. День рождения питомца — скидка 15%! 🎂",
+    btns:["💾 Сохранить купон","◀ Меню"]
+  },
+  "💬 Продавец":{
+    text:"Соединяю с продавцом... 🔗\n\nОтвечаем за 2–5 минут в рабочее время.\n\nИли опишите вопрос:",
+    btns:["◀ Меню"]
+  },
+  "◀ Меню":{
+    text:"Главное меню 👇",
+    btns:["🗂 Каталог","📦 Наличие товара","🔒 Забронировать","⭐ Лояльность","📍 Адрес и часы","🎁 Акции","💬 Продавец"]
+  },
+  "🗺 Открыть карту":{
+    text:"📌 Карта открыта!\n\nВ реальном боте здесь откроется геолокация с маршрутом.",
+    btns:["◀ Меню"]
+  },
+  "💾 Сохранить купон":{
+    text:"✅ Купон сохранён!\n\n🎫 СКИДКА10%\nПокажите на кассе — скидка 10% на корм.\n\n⏳ Сегодня до 20:00",
+    btns:["◀ Меню"]
+  },
+  "📜 История покупок":{
+    text:"📜 Последние покупки:\n\n1. 15.05 — Корм ProBalance 2кг — 890₽\n2. 02.05 — Шампунь — 450₽\n3. 20.04 — Игрушка-мышка — 180₽\n\n💡 Пора пополнить корм! Скидка 10% сегодня.",
+    btns:["🔒 Забронировать корм","◀ Меню"]
+  },
+  "🎁 Мои бонусы":{
+    text:"🎁 Доступные бонусы:\n\n├ 1240 баллов = 1240 ₽\n├ Скидка 7% на всё\n└ Бесплатная доставка от 2000₽",
+    btns:["◀ Меню"]
+  },
+  "🔒 Забронировать корм":{
+    text:"✅ Забронировано!\n\n📦 Корм ProBalance 2кг — 890 ₽\n⏱ Бронь на 4 часа\n\nВас ждут:\n📍 ул. Ленина, 45, ТЦ «Центральный»\n\nДо встречи! 😊",
+    btns:["◀ Меню"]
+  }
+};
+
+function addMsg(type,text,btns,product){
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+
+  if(product){
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `
+      <div class="pc-img" style="background:${product.bg}">${product.emoji}</div>
+      <div class="pc-body">
+        <div class="pc-name">${product.name}</div>
+        <div class="pc-price">${product.price}</div>
+        <div class="pc-stock">${product.stock}</div>
+        <div class="pc-btns">
+          <button class="pc-book" onclick="handleBtn('🔒 Забронировать корм')">🔒 Забронировать</button>
+          <button class="pc-back" onclick="handleBtn('◀ Меню')">Назад</button>
+        </div>
+      </div>
+    `;
+    div.appendChild(card);
+  } else {
+    const bub = document.createElement('div');
+    bub.className = 'bubble';
+    bub.style.whiteSpace = 'pre-wrap';
+    bub.textContent = text;
+    div.appendChild(bub);
+
+    if(btns?.length){
+      const wrap = document.createElement('div');
+      wrap.className = 'msg-btns';
+      btns.forEach(b=>{
+        const btn = document.createElement('button');
+        btn.className = 'mb';
+        btn.textContent = b;
+        btn.onclick = ()=>handleBtn(b);
+        wrap.appendChild(btn);
+      });
+      div.appendChild(wrap);
+    }
+  }
+
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function handleBtn(key){
+  addMsg('user',key);
+  setTimeout(()=>{
+    const s = scripts[key];
+    if(s){
+      if(s.product) addMsg('bot',null,null,s.product);
+      else addMsg('bot',s.text,s.btns);
+    } else {
+      addMsg('bot','Понял! В реальном боте я отвечу по теме вашего магазина.',['◀ Меню']);
+    }
+  },350);
+}
+
+function sendMsg(){
+  const v = inp.value.trim();
+  if(!v) return;
+  addMsg('user',v);
+  inp.value='';
+  setTimeout(()=>{
+    addMsg('bot','Получил ваш вопрос! 👍\n\nЭто демо-версия. Реальный бот ответит по теме вашего магазина или переключит на продавца.',['◀ Меню']);
+  },500);
+}
+
+inp.addEventListener('keydown',e=>{if(e.key==='Enter')sendMsg()});
+
+setTimeout(()=>{
+  const s = scripts.start;
+  addMsg('bot',s.text,s.btns);
+},600);
+
+// SCROLL REVEAL
+const io = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('in');
+      io.unobserve(e.target);
+    }
+  });
+},{threshold:.08});
+
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+// LEAD FORM
+function submitLead(){
+  const inp = document.getElementById('tgInput');
+  let val = inp.value.trim().replace(/^@/,'');
+
+  const oldErr = document.getElementById('leadError');
+  if(oldErr) oldErr.remove();
+
+  if(!val){
+    showError('Введите ваш username в Telegram');
+    inp.focus();
+    return;
+  }
+
+  if(!/^[a-zA-Z0-9_]{3,32}$/.test(val)){
+    showError('Username может содержать только буквы, цифры и _ (3–32 символа)');
+    inp.focus();
+    return;
+  }
+
+  document.getElementById('leadForm').style.display = 'none';
+  document.getElementById('leadSuccess').style.display = 'block';
+
+  console.log('Новая заявка: @' + val);
+}
+
+function showError(msg){
+  const err = document.createElement('p');
+  err.id = 'leadError';
+  err.className = 'lead-error';
+  err.textContent = '⚠ ' + msg;
+  document.getElementById('leadForm').insertAdjacentElement('afterend', err);
+}
+
+document.getElementById('tgInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') submitLead();
+});
+</script>
+</body>
+</html>
